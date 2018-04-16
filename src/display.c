@@ -603,7 +603,7 @@ int c;
 	    D_x += D_AM ? 1 : -1;
 	  D_mbcs = 0;
 	}
-      else if (utf8_isdouble(c))
+      else if (utf8_isdouble(c) || (c >= 0xd800 && c < 0xe000))
 	{
 	  D_mbcs = c;
 	  D_x++;
@@ -2923,7 +2923,7 @@ char *s;
   D_xtermosc[i] = 1;
   AddStr("\033]");
   AddStr(oscs[i][0]);
-  AddStr(s);
+  AddRawStr(s);
   AddChar(7);
 }
 
@@ -2959,6 +2959,18 @@ char *str;
       return;
     }
 #endif
+  while ((c = *str++))
+    AddChar(c);
+}
+
+void
+AddRawStr(str)
+char *str;
+{
+  register char c;
+
+  ASSERT(display);
+
   while ((c = *str++))
     AddChar(c);
 }

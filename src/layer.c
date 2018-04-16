@@ -405,6 +405,7 @@ void LPutWinMsg(struct layer *l, char *s, int n, struct mchar *r, int x, int y)
   struct viewport *vp;
   int xs2, xe2, y2, len, len2;
   struct mchar or;
+  int i;
 
   if (x + n > l->l_width)
     n = l->l_width - x;
