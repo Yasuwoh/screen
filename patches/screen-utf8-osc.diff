@@ -1,0 +1,112 @@
+--- a/src/ansi.c
++++ b/src/ansi.c
+@@ -1500,8 +1500,24 @@
+ {
+   if (curr->w_stringp >= curr->w_string + MAXSTR - 1)
+     curr->w_state = LIT;
++# ifdef UTF8
++  else if (c < 0x80)
++    *(curr->w_stringp)++ = c;
++  else if (c < 0x800) 
++    {
++      *(curr->w_stringp)++ = (c >> 6) | 0xc0;   
++      *(curr->w_stringp)++ = (c & 0x3f) | 0xc0;   
++    } 
++  else /* if (c < 0x10000) */
++    {
++      *(curr->w_stringp)++ = (c >> 12) | 0xe0;   
++      *(curr->w_stringp)++ = (c >> 6) & 0x3f | 0x80;   
++      *(curr->w_stringp)++ = (c & 0x3f) | 0x80;   
++    } 
++# else
+   else
+     *(curr->w_stringp)++ = c;
++# endif
+ }
+ 
+ /*
+@@ -1612,7 +1628,7 @@
+ 	}
+       return -1;
+     case DCS:
+-      LAY_DISPLAYS(&curr->w_layer, AddStr(curr->w_string));
++      LAY_DISPLAYS(&curr->w_layer, AddRawStr(curr->w_string));
+       break;
+     case AKA:
+       if (curr->w_title == curr->w_akabuf && !*curr->w_string)
+@@ -2247,7 +2263,11 @@
+       c = (unsigned char)*s++;
+       if (c == 0)
+ 	break;
++#ifdef UTF8
++      if (c < 32)
++#else
+       if (c < 32 || c == 127 || (c >= 128 && c < 160 && p->w_c1))
++#endif
+ 	continue;
+       p->w_akachange[i++] = c;
+     }
+--- a/src/display.c
++++ b/src/display.c
+@@ -2924,7 +2924,7 @@
+   D_xtermosc[i] = 1;
+   AddStr("\033]");
+   AddStr(oscs[i][0]);
+-  AddStr(s);
++  AddRawStr(s);
+   AddChar(7);
+ }
+ 
+@@ -2965,6 +2965,18 @@
+ }
+ 
+ void
++AddRawStr(str)
++char *str;
++{
++  register char c;
++
++  ASSERT(display);
++
++  while ((c = *str++))
++    AddChar(c);
++}
++
++void
+ AddStrn(str, n)
+ char *str;
+ int n;
+--- a/src/layer.c
++++ b/src/layer.c
+@@ -440,6 +440,7 @@
+   struct viewport *vp;
+   int xs2, xe2, y2, len, len2;
+   struct mchar or;
++  int i;
+ 
+   if (x + n > l->l_width)
+     n = l->l_width - x;
+@@ -474,18 +475,15 @@
+ 	  continue;
+ 	GotoPos(xs2, y2);
+ 	SetRendition(r);
++	for (i = xs2; i <= xe2; ++i)
++	  PUTCHARLP(' ');
++
++	GotoPos(xs2, y2);
++	SetRendition(r);
+ 	len2 = xe2 - (x + vp->v_xoff) + 1;
+ 	if (len2 > len)
+ 	  len2 = len;
+ 	PutWinMsg(s, xs2 - x - vp->v_xoff, len2);
+-	xs2 = x + vp->v_xoff + len2;
+-	if (xs2 < vp->v_xs)
+-	  xs2 = vp->v_xs;
+-	or = D_rend;
+-	GotoPos(xs2, y2);
+-	SetRendition(&or);
+-	while (xs2++ <= xe2)
+-	  PUTCHARLP(' ');
+       }
+   );
+ }
